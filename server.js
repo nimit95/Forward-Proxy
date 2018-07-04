@@ -1,66 +1,100 @@
 const net = require('net');
-const { Readable } = require('stream');
-const { Writable } = require('stream');
 
 const server = net.createServer();
 
 
-server.on('connection', (socket) => {
-	console.log('Client Connected');
-	
-	socket.setEncoding('utf8');
+let timeStart = new Date().getTime();
+server.on('connection', (clientToProxySocket) => {
 
-	let isServerConnected  = false, serverSocket;
-	socket.on('data', (data) => {
+  console.log('CLIENT TO PROXY SET UP');
 
-		let portNumber = 80;
+  
 
-		if(!isServerConnected) {
+  let proxyToServerSocket;
+  clientToProxySocket.once('data', (data) => {
 
-			if(!data.indexOf("Host") === -1) {
-				//Wrong type of packet Send proper html page for wrong packet
-				socket.end("Wrong request\n");
-			}
+    console.log(data.toString());
 
-			
+    let isTLSConnection = data.toString().indexOf("CONNECT") !== -1; 
 
-			console.log(data);
-			
-			//Make a new Connection with the the original server
-			serverSocket = net.createConnection({
-				port: portNumber,
-				host: data.split("Host: ")[1].split("\r\n")[0]
-			}, () => {
-				isServerConnected = true;
-			});
+    let serverPort = 80, serverAddress;
+    
+    if(isTLSConnection) {
+      serverPort = 443;
+      serverAddress = data.toString().split("CONNECT ")[1].split(" ")[0].split(":")[0]
+    }
 
-		}
-		
-		
-		setTimeout(() => {
-			serverSocket.write(data);
-			serverSocket.pipe(socket);
-		}, 0);
-		
+    else {
+      serverAddress = data.toString().split("Host: ")[1].split("\r\n")[0];
+    }
+   
+    console.log(serverAddress);
+    
+    proxyToServerSocket = net.createConnection({
+      host: serverAddress,
+      port: serverPort
+    }, () => {
+
+      console.log('PROXY TO SERVER SET UP');
+
+      isProxyServerConnected = true;
+      if(isTLSConnection)
+        clientToProxySocket.write("HTTP/1.1 200 OK\r\n\n");
+      else
+        proxyToServerSocket.write(data);
+      
+    
+    });
+
+    
+    proxyToServerSocket.pipe(clientToProxySocket)
+    clientToProxySocket.pipe(proxyToServerSocket);
+
+    clientToProxySocket.on('end', () => {
+      //clientToProxySocket.end();
+      proxyToServerSocket.end();
+    });
+    
+
+    clientToProxySocket.on('error', err => {
+      console.log('CLIENT TO PROXY ERROR');
+      console.log(new Date().getTime() - timeStart)
+      console.log(err);
+      //throw err
+    });
+
+    proxyToServerSocket.on('end', () => {
+      clientToProxySocket.end();
+      //proxyToServerSocket.end();
+    });
 
 
-	});
 
-	socket.on('end', () => {
-		console.log('after fin');
-		serverSocket.end();
-	})
+    proxyToServerSocket.on('error', (err) => {
+      console.log('PROXY TO SERVER ERROR');
+      console.log(err);
+	   // throw err
+    })
+
+  });
+
+  
+
+  
+
+  
 
 });
 
 server.on('error', (err) => {
+  console.log('SERVER ERROR');
 	console.log(err);
 	throw err
 });
 
 server.on('close', () => {
 	console.log('CLient Disconnected');
-	
+	proxyToServerSocket.end()
 });
 
 server.listen( 8124, () => {
