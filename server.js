@@ -17,9 +17,11 @@ server.on('connection', (clientToProxySocket) => {
 
     let isTLSConnection = data.toString().indexOf("CONNECT") !== -1; 
 
+    //By Default port is 80
     let serverPort = 80, serverAddress;
     
     if(isTLSConnection) {
+      //Port changed if connection is TLS
       serverPort = 443;
       serverAddress = data.toString().split("CONNECT ")[1].split(" ")[0].split(":")[0]
     }
@@ -51,7 +53,6 @@ server.on('connection', (clientToProxySocket) => {
     clientToProxySocket.pipe(proxyToServerSocket);
 
     clientToProxySocket.on('end', () => {
-      //clientToProxySocket.end();
       proxyToServerSocket.end();
     });
     
@@ -65,7 +66,6 @@ server.on('connection', (clientToProxySocket) => {
 
     proxyToServerSocket.on('end', () => {
       clientToProxySocket.end();
-      //proxyToServerSocket.end();
     });
 
 
@@ -78,12 +78,6 @@ server.on('connection', (clientToProxySocket) => {
 
   });
 
-  
-
-  
-
-  
-
 });
 
 server.on('error', (err) => {
@@ -94,7 +88,6 @@ server.on('error', (err) => {
 
 server.on('close', () => {
 	console.log('CLient Disconnected');
-	proxyToServerSocket.end()
 });
 
 server.listen( 8124, () => {
