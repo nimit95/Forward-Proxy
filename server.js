@@ -32,12 +32,16 @@ server.on('connection', (clientToProxySocket) => {
 
       // let isProxyServerConnected = true;
       if (isTLSConnection) {
-        clientToProxySocket.write(`HTTP/1.1 200 OK\r\n\\`);
+        clientToProxySocket.write('HTTP/1.1 200 OK\r\n\n');
       } else {
         proxyToServerSocket.write(data);
       }
     });
 
+    // proxyToServerSocket.on('data', (data) => {
+    //   clientToProxySocket.write(data);
+    // });
+    // clientToProxySocket.on()
     proxyToServerSocket.pipe(clientToProxySocket);
     clientToProxySocket.pipe(proxyToServerSocket);
 
